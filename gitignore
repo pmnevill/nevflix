@@ -1,0 +1,29 @@
+# ---- SECRETS: never commit ----
+.env
+*.env
+!.env.example
+
+# Real (un-sanitized) config files, in case they ever get copied in raw.
+# The repo only ever holds the SANITIZED copies under configs/.
+# These patterns are a safety net against accidentally adding real ones.
+**/config.ini.real
+**/slskd.yml.real
+**/*.secret
+
+# ---- SQLite databases: intentionally NOT in this repo ----
+# (App DBs carry machine-specific IPs/paths + embedded secrets; they live in the
+#  separate physical-media backup, not here. See CLAUDE.md / SETUP.md.)
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# ---- Junk that would bloat the repo ----
+**/logs/
+**/*.log
+**/MediaCover/
+**/cache/
+**/Backups/
+.DS_Store
+Thumbs.db

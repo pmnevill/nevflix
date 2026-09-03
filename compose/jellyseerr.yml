@@ -1,0 +1,19 @@
+# No secrets in compose (Jellyfin connection/API key configured in its own DB).
+name: jellyseerr
+services:
+    jellyseerr:
+        cpu_shares: 50
+        deploy:
+            resources:
+                limits: { cpus: "1.00", memory: "268435456" }
+                reservations: { cpus: "0.00", memory: "268435456" }
+        environment: { LOG_LEVEL: debug, TZ: America/Chicago }
+        image: fallenbagel/jellyseerr:2.7.3
+        network_mode: bridge
+        ports:
+            - { mode: ingress, target: 5055, published: "5055", protocol: tcp }
+        restart: unless-stopped
+        volumes:
+            - { type: bind, source: /media/ssd-storage/docker/jellyseer, target: /app/config }
+networks: { default: { name: jellyseerr_default } }
+x-casaos: { main: jellyseerr, port_map: "5055", scheme: http, store_app_id: jellyseerr, title: { custom: Jellyseerr } }

@@ -1,0 +1,29 @@
+# No secrets. ZimaOS app "navidrome". Groups library by EMBEDDED TAGS (see GOTCHAS.md).
+# ND_FAVICON intentionally NOT present (it is not a real option).
+name: navidrome
+services:
+    navidrome:
+        container_name: navidrome
+        deploy:
+            resources:
+                limits: { cpus: "1.00", memory: "4294967296" }
+                reservations: { cpus: "0.00", memory: "1073741824" }
+        environment:
+            ND_BASEURL: ""
+            ND_DEFAULTTHEME: Spotify-ish
+            ND_LOGLEVEL: info
+            ND_SCANSCHEDULE: 1h
+            ND_SESSIONTIMEOUT: 24h
+            PGID: "1001"
+            PUID: "1000"
+            TZ: America/Chicago
+        image: deluan/navidrome:0.61.2
+        network_mode: bridge
+        ports:
+            - { target: 4533, published: "4533", protocol: tcp }
+        restart: unless-stopped
+        volumes:
+            - { type: bind, source: /media/ssd-storage/docker/navidrome/data, target: /data }
+            - { type: bind, source: /media/ssd-storage/docker/media/music, target: /music }
+networks: { default: { name: navidrome_default } }
+x-casaos: { main: navidrome, port_map: "4533", scheme: http, store_app_id: navidrome, title: { custom: Navidrome } }

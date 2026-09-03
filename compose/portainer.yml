@@ -1,0 +1,18 @@
+# No secrets in compose (admin password set on first run, stored in its data volume).
+name: portainer
+services:
+    portainer:
+        container_name: portainer
+        deploy: { resources: { reservations: { memory: "33554432" } } }
+        image: portainer/portainer-ce:2.31.3
+        network_mode: bridge
+        ports:
+            - { target: 8000, published: "8000", protocol: tcp }
+            - { target: 9000, published: "9000", protocol: tcp }
+            - { target: 9443, published: "9443", protocol: tcp }
+        restart: unless-stopped
+        volumes:
+            - { type: bind, source: /DATA/AppData/$AppID, target: /data }
+            - { type: bind, source: /var/run/docker.sock, target: /var/run/docker.sock }
+networks: { default: { name: portainer_default } }
+x-casaos: { main: portainer, port_map: "9000", scheme: http, store_app_id: portainer, title: { en_US: Portainer } }

@@ -1,0 +1,132 @@
+# Templated for the repo. Secrets replaced with ${VARS} — populate from .env.
+# Deployed via ZimaOS as app "compose-341644f3b92633c1" (title: DelugeGluetun).
+# gluetun owns the network namespace; deluge/slskd/resilio-sync ride it via
+# network_mode: service:gluetun. ALL their ports are published on gluetun (see GOTCHAS.md).
+name: compose-341644f3b92633c1
+services:
+    deluge:
+        container_name: delugewgluetun
+        depends_on:
+            gluetun:
+                condition: service_healthy
+                required: true
+        deploy:
+            resources:
+                limits: { cpus: "1.00", memory: "4294967296" }
+                reservations: { cpus: "0.00", memory: "268435456" }
+        entrypoint:
+            - /bin/sh
+            - -c
+            - ' rm -f /config/deluged.pid /config/deluge-web.pid 2>/dev/null || true; exec /init '
+        environment:
+            DELUGE_LOGLEVEL: error
+            PGID: "1001"
+            PUID: "1000"
+            TZ: America/Chicago
+        healthcheck:
+            test: [CMD-SHELL, "deluge-console 'info' >/dev/null 2>&1 || exit 1"]
+            timeout: 15s
+            interval: 1m0s
+            retries: 3
+            start_period: 1m0s
+        image: lscr.io/linuxserver/deluge:2.2.0-r1-ls364
+        network_mode: service:gluetun
+        restart: always
+        volumes:
+            - { type: bind, source: /media/ssd-storage/docker/gluetunstack/deluge, target: /config }
+            - { type: bind, source: /media/ssd-storage/docker/incomplete-downloads/deluge, target: /data/incomplete-downloads }
+            - { type: bind, source: /media/ssd-storage/library/downloads, target: /data/downloads }
+    gluetun:
+        cap_add: [NET_ADMIN]
+        container_name: gluetun
+        deploy:
+            resources:
+                limits: { cpus: "1.00", memory: "4294967296" }
+                reservations: { cpus: "0.00", memory: "268435456" }
+        devices: ["/dev/net/tun:/dev/net/tun"]
+        environment:
+            SERVER_CITIES: Dallas TX
+            VPN_SERVICE_PROVIDER: mullvad
+            VPN_TYPE: wireguard
+            WIREGUARD_ADDRESSES: ${WIREGUARD_ADDRESSES}
+            WIREGUARD_PRIVATE_KEY: ${WIREGUARD_PRIVATE_KEY}
+        healthcheck:
+            test: [CMD, wget, -q, --spider, "https://1.1.1.1"]
+            timeout: 10s
+            interval: 30s
+            retries: 5
+            start_period: 1m30s
+        image: qmcgaw/gluetun:latest
+        network_mode: bridge
+        # ALL dependent-service ports are published here (deluge, slskd, resilio-sync).
+        ports:
+            - { mode: ingress, target: 8888,  published: "8888",  protocol: tcp }  # gluetun http proxy
+            - { mode: ingress, target: 8388,  published: "8388",  protocol: tcp }  # gluetun shadowsocks
+            - { mode: ingress, target: 8388,  published: "8388",  protocol: udp }
+            - { mode: ingress, target: 8112,  published: "8112",  protocol: tcp }  # deluge web
+            - { mode: ingress, target: 6881,  published: "6881",  protocol: tcp }  # deluge torrent
+            - { mode: ingress, target: 6881,  published: "6881",  protocol: udp }
+            - { mode: ingress, target: 58846, published: "58846", protocol: tcp }  # deluge daemon
+            - { mode: ingress, target: 5030,  published: "5030",  protocol: tcp }  # slskd web
+            - { mode: ingress, target: 5031,  published: "5031",  protocol: tcp }  # slskd web https
+            - { mode: ingress, target: 50300, published: "50300", protocol: tcp }  # slskd soulseek listen
+            - { mode: ingress, target: 8888,  published: "8889",  protocol: tcp }  # resilio web (remapped from 8888)
+            - { mode: ingress, target: 55555, published: "55555", protocol: tcp }  # resilio sync
+            - { mode: ingress, target: 55555, published: "55555", protocol: udp }
+        restart: always
+        volumes:
+            - { type: bind, source: /media/ssd-storage/docker/gluetunstack/gluetun, target: /gluetun }
+    resilio-sync:
+        container_name: resilio-sync
+        depends_on:
+            gluetun:
+                condition: service_healthy
+                required: true
+        deploy:
+            resources:
+                limits: { cpus: "1.00", memory: "4294967296" }
+                reservations: { cpus: "0.00", memory: "268435456" }
+        environment:
+            PGID: "1001"
+            PUID: "1000"
+            TZ: America/Chicago
+            UMASK_SET: "002"
+        image: lscr.io/linuxserver/resilio-sync:latest
+        network_mode: service:gluetun
+        restart: unless-stopped
+        volumes:
+            - { type: bind, source: /media/ssd-storage/docker/gluetunstack/resilio-sync, target: /config, bind: { create_host_path: true } }
+            - { type: bind, source: /media/ssd-storage/docker/resilio-sync/downloads, target: /downloads, bind: { create_host_path: true } }
+            - { type: bind, source: /media/ssd-storage/docker/resilio-sync/data, target: /sync, bind: { create_host_path: true } }
+    slskd:
+        container_name: slskd
+        depends_on:
+            gluetun:
+                condition: service_healthy
+                required: true
+        deploy:
+            resources:
+                limits: { cpus: "1.00", memory: "4294967296" }
+                reservations: { cpus: "0.00", memory: "268435456" }
+        environment:
+            PGID: "1001"
+            PUID: "1000"
+            SLSKD_REMOTE_CONFIGURATION: "true"
+            TZ: America/Chicago
+        image: slskd/slskd
+        logging: { driver: json-file }
+        network_mode: service:gluetun
+        restart: unless-stopped
+        volumes:
+            - { type: bind, source: /media/ssd-storage/docker/gluetunstack/slskd, target: /app }
+            - { type: bind, source: /media/ssd-storage/docker/downloads/slskd, target: /downloads }
+            - { type: bind, source: /media/ssd-storage/docker/incomplete-downloads/slskd, target: /incomplete }
+            - { type: bind, source: /media/ssd-storage/docker/media/music, target: /data }
+networks:
+    default: { name: compose-341644f3b92633c1_default }
+x-casaos:
+    main: gluetun
+    port_map: "8112"
+    scheme: http
+    store_app_id: compose-442d4661dcda8861
+    title: { custom: DelugeGluetun }

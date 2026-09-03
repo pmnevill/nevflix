@@ -1,0 +1,15 @@
+# No secrets in compose (the tunnel token is configured via the cloudflared-web UI on :14333,
+# stored under /config). ZimaOS app "cloudflared". Primary remote-access path.
+name: cloudflared
+services:
+    cloudflared:
+        container_name: cloudflared
+        image: wisdomsky/cloudflared-web:2026.5.0
+        network_mode: host
+        ports:
+            - { target: 14333, published: "14333", protocol: tcp }   # config web UI
+        restart: unless-stopped
+        volumes:
+            - { type: bind, source: /DATA/AppData/casaos-cloudflared/config, target: /config }
+networks: { default: { name: cloudflared_default } }
+x-casaos: { main: cloudflared, port_map: "14333", scheme: http, store_app_id: cloudflared, title: { en_US: Cloudflared } }

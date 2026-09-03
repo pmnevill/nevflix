@@ -1,0 +1,42 @@
+# No secrets. ZimaOS app "compose-594fdf444131d3dc" (title: Trawl).
+# Redis session cache reached by hostname via the links: entry — required because
+# ZimaOS forces network_mode: bridge (no name DNS on the default bridge). See GOTCHAS.md.
+name: compose-594fdf444131d3dc
+services:
+    redis:
+        container_name: trawl-redis
+        deploy:
+            resources:
+                limits: { cpus: "1.00", memory: "4294967296" }
+                reservations: { cpus: "0.00", memory: "268435456" }
+        image: redis:7-alpine
+        network_mode: bridge
+        restart: unless-stopped
+        volumes:
+            - { type: bind, source: /media/ssd-storage/docker/trawl/redis, target: /data, bind: { create_host_path: true } }
+    trawl:
+        container_name: trawl
+        depends_on:
+            redis: { condition: service_started, required: true }
+        deploy:
+            resources:
+                limits: { cpus: "1.00", memory: "4294967296" }
+                reservations: { cpus: "0.00", memory: "268435456" }
+        environment:
+            REDIS_URL: redis://redis:6379
+            TZ: America/Chicago
+        image: ghcr.io/germondai/trawl:latest
+        links: [redis]                 # <-- makes hostname 'redis' resolve on the default bridge
+        network_mode: bridge
+        ports:
+            - { mode: ingress, target: 8191, published: "8191", protocol: tcp }
+        restart: unless-stopped
+        shm_size: "1073741824"
+networks:
+    default: { name: compose-594fdf444131d3dc_default }
+x-casaos:
+    main: redis
+    port_map: "8191"
+    scheme: http
+    store_app_id: compose-594fdf444131d3dc
+    title: { custom: Trawl }

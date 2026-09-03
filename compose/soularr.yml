@@ -1,0 +1,36 @@
+# No secrets in compose (Soularr's secrets live in its config.ini -> see configs/soularr/).
+# ZimaOS app "compose-eda05c2d10c7656f" (title: Soularr).
+# NOTE: uses `user: 1000:1001` because this image ignores PUID/PGID (see GOTCHAS.md).
+name: compose-eda05c2d10c7656f
+services:
+    soularr:
+        container_name: soularr
+        deploy:
+            resources:
+                limits: { cpus: "1.00", memory: "4294967296" }
+                reservations: { cpus: "0.00", memory: "268435456" }
+        environment:
+            PGID: "1001"
+            PUID: "1000"
+            SCRIPT_INTERVAL: "300"
+            TZ: America/Chicago
+        hostname: soularr.internal
+        image: mrusse08/soularr:latest
+        logging: { driver: json-file }
+        network_mode: bridge
+        ports:
+            - { mode: ingress, target: 8265, published: "8265", protocol: tcp }
+        restart: unless-stopped
+        user: 1000:1001                # <-- required; image ignores PUID/PGID
+        volumes:
+            - { type: bind, source: /media/ssd-storage/docker/downloads/slskd, target: /downloads }
+            - { type: bind, source: /media/ssd-storage/docker/incomplete-downloads/slskd, target: /incomplete }
+            - { type: bind, source: /media/ssd-storage/docker/arrs/soularr, target: /data }
+networks:
+    default: { name: compose-eda05c2d10c7656f_default }
+x-casaos:
+    main: soularr
+    port_map: "8265"
+    scheme: http
+    store_app_id: compose-9e3233b1271ee37c
+    title: { custom: Soularr }

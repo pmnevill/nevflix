@@ -1,0 +1,23 @@
+# No secrets in compose (indexer API keys live in Prowlarr's DB, not here).
+# ZimaOS app "prowlarr". Image PINNED to 2.4.0.5397 (rollback to avoid a 2.5.2 regression).
+# ZimaOS metadata may still show 2.5.2 — the image line is authoritative. See DEPLOYMENT.md.
+name: prowlarr
+services:
+    prowlarr:
+        container_name: prowlarr
+        deploy:
+            resources:
+                limits: { cpus: "1.00", memory: "4294967296" }
+                reservations: { cpus: "0.00", memory: "67108864" }
+        environment: { PGID: "1001", PUID: "1000", TZ: America/Chicago }
+        image: linuxserver/prowlarr:version-2.4.0.5397
+        network_mode: bridge
+        ports:
+            - { target: 9696, published: "9696", protocol: tcp }
+        restart: unless-stopped
+        volumes:
+            - { type: bind, source: /media/ssd-storage/docker/arrs/prowlarr, target: /config }
+            - { type: bind, source: /media/ssd-storage/docker/arrs/prowlarr/backup, target: /backup }
+            - { type: bind, source: /media/ssd-storage/docker/downloads, target: /data/downloads }
+networks: { default: { name: prowlarr_default } }
+x-casaos: { main: prowlarr, port_map: "9696", scheme: http, store_app_id: prowlarr, title: { custom: Prowlarr } }

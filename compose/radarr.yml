@@ -1,0 +1,23 @@
+# No secrets. ZimaOS app "radarr".
+# NOTE: single consolidated mount (/media/ssd-storage/library -> /data) is the HARDLINK FIX.
+# Movies live at /data/movies, downloads at /data/downloads, same mount => hardlinks work. See GOTCHAS.md.
+name: radarr
+services:
+    radarr:
+        container_name: radarr
+        deploy:
+            resources:
+                limits: { cpus: "1.00", memory: "4294967296" }
+                reservations: { cpus: "0.00", memory: "268435456" }
+        environment: { PGID: "1001", PUID: "1000", TZ: America/Chicago }
+        image: linuxserver/radarr:6.3.0
+        network_mode: bridge
+        ports:
+            - { target: 7878, published: "7878", protocol: tcp }
+        restart: unless-stopped
+        volumes:
+            - { type: bind, source: /media/ssd-storage/docker/arrs/radarr, target: /config }
+            - { type: bind, source: /media/ssd-storage/library, target: /data }          # consolidated: movies + downloads
+            - { type: bind, source: /media/ssd-storage/docker/backup/radarr, target: /backup }
+networks: { default: { name: radarr_default } }
+x-casaos: { main: radarr, port_map: "7878", scheme: http, store_app_id: radarr, title: { custom: Radarr } }

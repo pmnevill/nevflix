@@ -1,0 +1,30 @@
+# SANITIZED for the repo. Real secrets replaced with __PLACEHOLDER__ values.
+# The real file lives at (host) /media/ssd-storage/docker/gluetunstack/slskd/slskd.yml
+# This shows only the ACTIVE (non-default) settings; slskd ships a large commented
+# defaults file — consult upstream docs for the full option set.
+# Restore real values from your .env / password manager. See SETUP.md.
+
+directories:
+  incomplete: /incomplete
+  downloads: /downloads
+
+shares:
+  directories:
+    - /data
+
+web:
+  authentication:
+    disabled: false
+    username: __SLSKD_WEB_USERNAME__
+    password: __SLSKD_WEB_PASSWORD__
+    api_keys:
+      my_api_key:
+        key: __SLSKD_API_KEY__
+        role: readonly            # readonly, readwrite, administrator
+        cidr: 0.0.0.0/0,::/0
+
+soulseek:
+  address: vps.slsknet.org
+  port: 2271
+  username: __SOULSEEK_USERNAME__
+  password: __SOULSEEK_PASSWORD__
