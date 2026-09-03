@@ -14,6 +14,58 @@ A self-hosted media acquisition + streaming stack. Three roles:
 2. **Stream** it — video (Jellyfin) and music (Navidrome), reachable remotely without a VPN client.
 3. **Isolate** all acquisition traffic behind a VPN kill-switch so nothing leaks to the ISP.
 
+## System diagram
+
+```mermaid
+flowchart TB
+    subgraph access[Access]
+        LAN[Local network<br/>PRIMARY: direct by host IP/port]
+        CF[Cloudflare Tunnel<br/>optional, secondary: remote only]
+    end
+
+    subgraph stream[Streaming and requests]
+        JF[Jellyfin]
+        ND[Navidrome]
+        JS[Jellyseerr]
+    end
+
+    subgraph mgmt[Acquisition management and indexing]
+        RAD[Radarr]
+        SON[Sonarr]
+        LID[Lidarr]
+        SOU[Soularr]
+        PROW[Prowlarr<br/>indexer hub]
+        TRAWL[Trawl + Redis<br/>Cloudflare proxy]
+    end
+
+    subgraph vpn[gluetun — VPN kill-switch: owns network namespace, all traffic forced through tunnel, dependent ports published here]
+        DEL[deluge<br/>torrents]
+        SLS[slskd<br/>Soulseek]
+        RES[resilio-sync<br/>P2P sync]
+    end
+
+    subgraph store[Libraries — see DEPLOYMENT.md for which drive]
+        MOV[Movies<br/>hardlinked]
+        TV[TV shows<br/>copied, cross-filesystem]
+        MUS[Music]
+    end
+
+    LAN --> stream
+    CF -.->|when remote| stream
+    PROW -->|syncs indexers| RAD & SON & LID
+    PROW -->|Cloudflare indexers| TRAWL
+    RAD & SON -->|torrent| DEL
+    LID -->|torrent path| DEL
+    LID --> SOU -->|Soulseek| SLS
+    DEL -->|import| MOV & TV
+    SLS -->|move-import| MUS
+    RES -.-> JF
+    MOV & TV --> JF
+    MUS --> ND
+```
+
+**Reading the diagram:** primary access is on the local network (direct to each service by host IP/port); the Cloudflare Tunnel is an optional secondary path used only when remote. Everything inside the **gluetun** box is VPN-isolated by construction (it has no network of its own). Prowlarr is the indexing hub feeding all three *arr apps. Note the two music paths into Lidarr (Soularr/Soulseek *and* Lidarr's own torrent search) — they race, as described below. Movies hardlink (same filesystem as downloads); TV copies (library on a different filesystem) — see `GOTCHAS.md` and `DEPLOYMENT.md`.
+
 ## 2. Service inventory
 
 | Service | Role |
@@ -97,9 +149,10 @@ Several containers mount the **same** download/library folders (e.g. a downloads
 - ***arr apps → deluge:** configured as a download client (host IP + port).
 - **Trawl → Redis:** by container name via a Docker `links:` entry (a workaround for the platform forcing plain-bridge networking, which lacks name DNS — see `GOTCHAS.md`).
 
-## 7. Remote access
+## 7. Access (local-first)
 
-- **Cloudflare Tunnel** (`cloudflared`, host network) is the primary path: the streaming services (Jellyfin, Navidrome, Jellyseerr) get public HTTPS subdomains, reachable from anywhere with **no VPN client** on the connecting device. Cloudflare terminates TLS at its edge (a privacy trade-off worth being aware of for the private services).
+- **Primary access is on the local network** — services are reached directly by host IP + port (e.g. Jellyfin at `<host-ip>:8097`, Navidrome at `<host-ip>:4533`). Day-to-day use is on-network.
+- **Cloudflare Tunnel** (`cloudflared`, host network) is an **optional secondary path for remote access only** — it exposes the streaming services (Jellyfin, Navidrome, Jellyseerr) as public HTTPS subdomains reachable from off-network with no VPN client. Convenient when away, but not the main entry point. Note Cloudflare terminates TLS at its edge (a privacy trade-off worth being aware of for anything exposed this way).
 
 ## 8. Identity / permissions model
 

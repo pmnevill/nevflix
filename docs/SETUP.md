@@ -84,8 +84,9 @@ App-specific:
 - **Navidrome**: point at the music library mount. Set env (`ND_DEFAULTTHEME`, etc.). Note: it reads **embedded tags** for grouping (see `GOTCHAS.md` → tags). Do **not** set `ND_FAVICON` (not a real option). Theme is per-browser.
 - **Jellyseerr**: connect it to Jellyfin (URL + API key), set up request/approval as desired.
 
-## 7. cloudflared (remote access)
+## 7. cloudflared (OPTIONAL — secondary remote access only)
 
+- Primary access is on the local network (direct host IP + port); this step is only needed if you want off-network access. Skippable otherwise.
 - Deploy the Cloudflare Tunnel container. In the Cloudflare Zero Trust dashboard, create the tunnel and add **public hostnames** mapping subdomains to each internal service (Jellyfin, Navidrome, Jellyseerr) by internal address + port.
 - Set "Known Proxies"/trusted-proxy settings in the apps so they see real client IPs through the tunnel.
 - Prefer subdomains over subpaths (fewer base-path headaches).

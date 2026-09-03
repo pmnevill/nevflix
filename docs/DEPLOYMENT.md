@@ -38,8 +38,10 @@
 
 2. **Cross-container references use the host IP `192.168.1.103`.** App-to-app links (Prowlarr↔the *arr apps, download clients, Trawl proxy) are configured with this literal LAN IP, not container names. **On a rebuild with a different host IP, these all need updating.** (See the `localhost`/DNS notes in `GOTCHAS.md` for why it's an IP and not `localhost`.)
 
-## Remote access
-- **Cloudflare Tunnel** (`wisdomsky/cloudflared-web`, host network) is the primary remote-access path — public HTTPS subdomains for Jellyfin / Navidrome / Jellyseerr, no client needed on the connecting device. (Tailscale was previously also running but was removed.)
+## Access
+- **Primary access is on the local network** — direct to each service by host IP + port. This is the normal, day-to-day mode.
+- **Cloudflare Tunnel** (`wisdomsky/cloudflared-web`, host network) is an **optional secondary path for remote access only** — public HTTPS subdomains for Jellyfin / Navidrome / Jellyseerr when off-network, no client needed. Not the main entry point.
+- **Tailscale** is also present but parked/under evaluation (see below) — another potential remote-access option, not currently relied on.
 
 ## Cleanup / removed / parked (verified against live state)
 - **Removed:** `byparr` (replaced by `trawl`). Stray `qbittorrent` and `big-bear-gluetun` remnants were also cleaned up (may leave empty `AppData` folders behind — harmless).

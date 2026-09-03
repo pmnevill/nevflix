@@ -6,7 +6,7 @@
 
 ## What this system is (one paragraph)
 
-A **ZimaOS** (CasaOS-based) home media server. It automatically acquires movies/TV (via torrents) and music (via Soulseek), streams them (Jellyfin for video, Navidrome for music), and routes all acquisition traffic through a **VPN kill-switch** so nothing leaks. Apps run as Docker Compose stacks managed by the ZimaOS dashboard; the real compose files live at `/DATA/.casaos/apps/<app>/docker-compose.yml`.
+A **ZimaOS** (CasaOS-based) home media server. It automatically acquires movies/TV (via torrents) and music (via Soulseek), streams them (Jellyfin for video, Navidrome for music), and routes all acquisition traffic through a **VPN kill-switch** so nothing leaks. Access is primarily on the local network; a Cloudflare Tunnel is an optional secondary path for when remote. Apps run as Docker Compose stacks managed by the ZimaOS dashboard; the real compose files live at `/DATA/.casaos/apps/<app>/docker-compose.yml`.
 
 ## Read in this order
 
