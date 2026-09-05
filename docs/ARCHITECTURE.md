@@ -64,7 +64,7 @@ flowchart TB
     MUS --> ND
 ```
 
-**Reading the diagram:** primary access is on the local network (direct to each service by host IP/port); the Cloudflare Tunnel is an optional secondary path used only when remote. Everything inside the **gluetun** box is VPN-isolated by construction (it has no network of its own). Prowlarr is the indexing hub feeding all three *arr apps. Note the two music paths into Lidarr (Soularr/Soulseek *and* Lidarr's own torrent search) — they race, as described below. Movies hardlink (same filesystem as downloads); TV copies (library on a different filesystem) — see `GOTCHAS.md` and `DEPLOYMENT.md`.
+**Reading the diagram:** primary access is on the local network (direct to each service by host IP/port); the Cloudflare Tunnel is an optional secondary path used only when remote. Everything inside the **gluetun** box is VPN-isolated by construction (it has no network of its own). Prowlarr is the indexing hub feeding all three *arr apps. Note the two music paths into Lidarr (Soularr/Soulseek *and* Lidarr's own torrent search) — a delay profile makes Soulseek the preferred path and torrents the fallback, as described below. Movies and music hardlink (same filesystem as downloads); TV copies (library on a different filesystem) — see `GOTCHAS.md` and `DEPLOYMENT.md`.
 
 ## 2. Service inventory
 
@@ -122,8 +122,8 @@ Music:   Lidarr ─┬─▶ Soularr ─▶ slskd (Soulseek, VPN) ─▶ downloa
 
 - **Prowlarr is the hub.** Indexers are configured once in Prowlarr and synced down to Radarr/Sonarr/Lidarr. For Cloudflare-protected indexers, Prowlarr routes through **Trawl** (its indexer proxy) to solve challenges.
 - **Movies/TV are torrent-only** via deluge.
-- **Music has two independent, racing paths:** Soularr (Soulseek) *and* Lidarr's own torrent indexers → deluge. Whichever finds an album first wins — this is **not** a primary/fallback arrangement.
-- **Soularr** is a separate script (not a server): it reads Lidarr's wanted albums, searches Soulseek via slskd, downloads a pick, renames the folder to `Artist - Album (Year)`, and tells Lidarr to import. Its text-based matching is the pipeline's weakest link (see `GOTCHAS.md` — wrong-artist grabs; Lidarr's fingerprinting is the guard that catches them).
+- **Music has two paths, Soulseek preferred and torrents a genuine fallback — not a race.** A Lidarr torrent delay profile holds a candidate release for a fixed window; Soularr's polling interval fires within that window, and if Soulseek satisfies the album first it stops being wanted, so the torrent grab never happens. Only albums Soulseek can't find fall through to Lidarr's own torrent indexers → deluge. (This used to race with no primary/fallback ordering; the delay profile is what changed that — see `DEPLOYMENT.md` for the current delay value.)
+- **Soularr** is a separate script (not a server): it reads Lidarr's wanted albums, searches Soulseek via slskd, downloads a pick, renames the folder to `Artist - Album (Year)`, and tells Lidarr to import via a same-mount move. Its text-based matching is the pipeline's weakest link (see `GOTCHAS.md` — wrong-artist grabs; Lidarr's fingerprinting is the guard that catches them).
 
 ## 5. Storage architecture (the important part — stated as relationships, not drives)
 
@@ -136,7 +136,7 @@ The system cares about **which mounts share a filesystem**, because that determi
 ### The current shape
 - **Movies:** downloads and the movie library share one filesystem *and* one parent mount → Radarr **hardlinks**. This is the intended, space-efficient design.
 - **TV:** the TV library is on a **different filesystem** from TV downloads (a capacity-driven deployment choice — see `DEPLOYMENT.md`) → Sonarr **copies**. Mitigated by removing the download after successful import so duplication is transient, not permanent. This is an accepted compromise, revisited when storage grows.
-- **Music:** Soularr uses a **move-based** import (not hardlink), so the download is relocated into the library rather than linked. Different mechanism entirely — hardlink concerns don't apply to the music path.
+- **Music:** downloads, the Soulseek folder, and the music library were consolidated under one shared parent mount, the same pattern as movies → Lidarr **hardlinks** torrent-sourced imports. Soularr's Soulseek imports still use a **move-based** import (not hardlink), but because that move now stays on one filesystem it's a plain rename rather than a cross-mount copy. With hardlinking in place, a seeded torrent's completed copy shares an inode with the library copy and costs no extra space, so "remove completed" is no longer needed for space reasons on this path (see `DEPLOYMENT.md`).
 
 ### Mount-sharing is load-bearing
 Several containers mount the **same** download/library folders (e.g. a downloads folder is visible to the torrent client, both relevant *arr apps, and the media server; a media library is visible to its *arr app and the media server). **Relocating any shared folder requires updating the `source:` path in every service that mounts it**, or the others silently point at nothing. (See `GOTCHAS.md`.)

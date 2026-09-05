@@ -24,6 +24,6 @@ services:
         restart: unless-stopped
         volumes:
             - { type: bind, source: /media/ssd-storage/docker/navidrome/data, target: /data }
-            - { type: bind, source: /media/ssd-storage/docker/media/music, target: /music }
+            - { type: bind, source: /media/ssd-storage/library/music, target: /music }
 networks: { default: { name: navidrome_default } }
 x-casaos: { main: navidrome, port_map: "4533", scheme: http, store_app_id: navidrome, title: { custom: Navidrome } }

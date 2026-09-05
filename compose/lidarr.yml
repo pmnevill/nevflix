@@ -1,5 +1,5 @@
 # No secrets. ZimaOS app "lidarr". KEEP "Allow Fingerprinting" ON in the UI (see GOTCHAS.md).
-# Nested download mounts: /data/downloads (parent), /data/downloads/slskd, /data/downloads/deluge.
+# Single shared mount: library -> /data gives /data/downloads, /data/slskd, /data/music (see GOTCHAS.md).
 name: lidarr
 services:
     lidarr:
@@ -16,10 +16,7 @@ services:
         restart: unless-stopped
         volumes:
             - { type: bind, source: /media/ssd-storage/docker/arrs/lidarr, target: /config }
-            - { type: bind, source: /media/ssd-storage/docker/media/music, target: /data/music }
-            - { type: bind, source: /media/ssd-storage/docker/downloads, target: /data/downloads }
+            - { type: bind, source: /media/ssd-storage/library, target: /data }
             - { type: bind, source: /media/ssd-storage/docker/backup/lidarr, target: /backup }
-            - { type: bind, source: /media/ssd-storage/docker/downloads/slskd, target: /data/downloads/slskd }
-            - { type: bind, source: /media/ssd-storage/library/downloads, target: /data/downloads/deluge }
 networks: { default: { name: lidarr_default } }
 x-casaos: { main: lidarr, port_map: "8686", scheme: http, store_app_id: lidarr, title: { custom: Lidarr } }

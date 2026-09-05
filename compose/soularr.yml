@@ -23,7 +23,7 @@ services:
         restart: unless-stopped
         user: 1000:1001                # <-- required; image ignores PUID/PGID
         volumes:
-            - { type: bind, source: /media/ssd-storage/docker/downloads/slskd, target: /downloads }
+            - { type: bind, source: /media/ssd-storage/library/slskd, target: /downloads }
             - { type: bind, source: /media/ssd-storage/docker/incomplete-downloads/slskd, target: /incomplete }
             - { type: bind, source: /media/ssd-storage/docker/arrs/soularr, target: /data }
 networks:

@@ -62,6 +62,19 @@
 ### Moving a shared folder breaks every consumer
 - A downloads/library folder may be mounted by **many** containers (here, up to five). Relocating it requires updating the `source:` in **every** service that mounts it, or the others silently point at an empty directory (a media server's library goes blank, an importer loses its input, etc.). Stop all affected containers, update every `source:`, recreate.
 
+### Same container path, different host directories (a fresh silent-failure mode)
+- A download client and its *arr app can map the **same container path to different host directories**. The *arr doesn't store a download location itself — it queries the client over the API and gets back a path in the *client's* container namespace, then resolves that string against its own mount table. If the two containers' mount tables disagree on what that path means, the *arr lands in the wrong real directory. If that directory happens to exist and be readable, there's **no error anywhere in the stack** — just a "file not found" import failure, torrents that seed forever, and disk usage that quietly grows.
+- This is distinct from the cross-device hardlink trap above: that one breaks linking after the file is found; this one means the file is never found at all.
+- **Diagnostic:** before theorizing, compare `docker inspect` mount destinations across the download client and the *arr app for the identical path string. A collision is indistinguishable from a genuinely missing file by symptom alone — ground truth from `docker inspect` is the only way to tell them apart.
+
+### Bind mounts follow inodes, not paths
+- After a same-filesystem `mv` of a bind-mount source, **already-running containers keep working** — the mount resolves to the inode, which the rename didn't touch. The danger is that this working state doesn't survive a restart: on recreate, Docker re-resolves the `source:` path, finds nothing there, and creates an empty `root:root` directory at the old location (the same `create_host_path` behavior noted above under UID/GID). Symptoms would be a blank media-server library or a download client silently writing somewhere nothing else can see.
+- **Implication:** after moving a bind-mount source, update every compose file's `source:` **before** anything restarts, and verify with `docker inspect` rather than trusting that the containers still look healthy.
+
+### `stat` is shadowed on this host
+- A shell alias overrides `stat` here, printing an uptime/memory banner and echoing the format string and filename back as if they were real fields. It **returns success and emits plausible-looking output**, so a hand-typed ownership check can silently produce garbage instead of failing loudly. It's interactive-only, so scripts aren't affected.
+- Use `ls -lan` for ownership checks instead. Pairs with the "not a standard apt userland" bullet above — don't assume a familiar command does what it normally does.
+
 ## Music pipeline (Lidarr + Soularr + slskd)
 
 ### Where the failures actually come from
@@ -74,6 +87,7 @@
 - **`minimum_filename_match_ratio`** (e.g. `0.5`+) — rejects downloads whose filename doesn't closely match the search. Purpose-built for the wrong-content problem.
 - Tightening `accepted_formats`/`accepted_countries` reduces "Lidarr wants a specific edition Soulseek doesn't have" failures.
 - **Watch the `config.ini` section headers:** these search keys go under `[Search Settings]`; `rename_download_folders` goes under `[Download Settings]`. A key under the wrong section is silently ignored.
+- **Lidarr's Torrent Delay Profile is what makes Soulseek the preferred path instead of a race.** Set the delay (e.g. 720–1440 min) on the torrent protocol only: Lidarr holds a torrent candidate for that window, Soularr's polling interval fires within it, and if Soulseek satisfies the album first the torrent grab never occurs. Without a delay, whichever path finds the album first wins with no preference either way.
 
 ### DO NOT disable fingerprinting to force imports
 - Setting "Allow Fingerprinting = Never" (or forcing past the confidence rejection via Interactive Import) *will* push failures through — **but it removes the exact guard that catches wrong-artist downloads.** You trade "won't import" for "silently imports the wrong music." Keep fingerprinting ON; if legit obscure albums over-reject, lower the *confidence threshold* rather than disabling the check. (Observed consequence of disabling: wrong files landed in the library with coherent-but-wrong tags — a Navidrome album filed under the wrong artist. **Coherent-but-mismatched tags are the sign the *file* is wrong, not the tag.**)

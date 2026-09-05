@@ -119,9 +119,9 @@ services:
         restart: unless-stopped
         volumes:
             - { type: bind, source: /media/ssd-storage/docker/gluetunstack/slskd, target: /app }
-            - { type: bind, source: /media/ssd-storage/docker/downloads/slskd, target: /downloads }
+            - { type: bind, source: /media/ssd-storage/library/slskd, target: /downloads }
             - { type: bind, source: /media/ssd-storage/docker/incomplete-downloads/slskd, target: /incomplete }
-            - { type: bind, source: /media/ssd-storage/docker/media/music, target: /data }
+            - { type: bind, source: /media/ssd-storage/library/music, target: /data }
 networks:
     default: { name: compose-341644f3b92633c1_default }
 x-casaos:

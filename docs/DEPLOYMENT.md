@@ -25,16 +25,16 @@
   - `/media/ssd-storage/docker/` → navidrome, gluetunstack (deluge/slskd/gluetun/resilio configs), trawl, etc.
 - **Media libraries:**
   - Movies: `/media/ssd-storage/library/movies` (USB HDD)
-  - Music: `/media/ssd-storage/docker/media/music` (USB HDD)
+  - Music: `/media/ssd-storage/library/music` (USB HDD — moved from `docker/media/music`; see below)
   - TV: `/media/ZimaOS-HD/media/tvshows` i.e. `/DATA/media/tvshows` (**NVMe** — moved here; see below)
 - **Downloads:**
   - Deluge completed → `/media/ssd-storage/library/downloads` (USB HDD)
-  - slskd → `/media/ssd-storage/docker/downloads/slskd` (USB HDD)
-  - incomplete-downloads → `/media/ssd-storage/docker/incomplete-downloads/*` (USB HDD)
+  - slskd → `/media/ssd-storage/library/slskd` (USB HDD — moved from `docker/downloads/slskd`; see below)
+  - incomplete-downloads → `/media/ssd-storage/docker/incomplete-downloads/*` (USB HDD, both clients — **not** part of the consolidation below)
 
 ## The two deployment-specific compromises to know
 
-1. **Movies hardlink; TV copies.** Movies + their downloads are both on the USB HDD under a shared `library/` mount, so Radarr **hardlinks** (no duplication). The **TV library was deliberately moved to `/DATA` (NVMe)** to relieve HDD space pressure (the ~140 GB TV library wouldn't fit in the HDD's free space). Because TV downloads (HDD) and the TV library (NVMe) are now on **different filesystems**, Sonarr **always copies** TV imports — unavoidable while they're split. Mitigation in place: Sonarr should remove the download after successful import so the duplicate is transient, not permanent. Revisit true TV hardlinking only when storage capacity increases.
+1. **Movies and music hardlink; TV copies.** Movies + their downloads are both on the USB HDD under a shared `library/` mount, so Radarr **hardlinks** (no duplication). Music was consolidated under that same narrow `library/` parent (moving `docker/media/music` → `library/music` and `docker/downloads/slskd` → `library/slskd`), and Lidarr's four separate mounts were collapsed into a single `library → /data` bind mount — so Lidarr now sees downloads, slskd, and the music library as one device and can hardlink too, and the Soularr move-import is a same-filesystem `rename(2)` instead of a cross-mount copy. (Intended behaviour — the hardlink test and an end-to-end torrent-sourced import haven't been directly confirmed yet; see `GOTCHAS.md` for why the single-mount collapse is what actually makes this work.) The **TV library was deliberately moved to `/DATA` (NVMe)** to relieve HDD space pressure (the ~140 GB TV library wouldn't fit in the HDD's free space). Because TV downloads (HDD) and the TV library (NVMe) are now on **different filesystems**, Sonarr **always copies** TV imports — unavoidable while they're split. Mitigation in place: Sonarr should remove the download after successful import so the duplicate is transient, not permanent. Revisit true TV hardlinking only when storage capacity increases.
 
 2. **Cross-container references use the host IP `192.168.1.103`.** App-to-app links (Prowlarr↔the *arr apps, download clients, Trawl proxy) are configured with this literal LAN IP, not container names. **On a rebuild with a different host IP, these all need updating.** (See the `localhost`/DNS notes in `GOTCHAS.md` for why it's an IP and not `localhost`.)
 
@@ -50,3 +50,10 @@
 
 ## Known cosmetic discrepancies (not bugs — documented so they don't confuse)
 - **Prowlarr version label vs. actual image.** Prowlarr's `image:` is pinned to `version-2.4.0.5397` (a deliberate rollback to avoid a 2.5.2 regression) — **this is what actually runs and is authoritative.** ZimaOS's dashboard metadata (`x-casaos: version:`) may still *display* `2.5.2`; that label is stale and has no functional effect. Trust the `image:` line, not the dashboard label. (Classic "labels lie" — see `GOTCHAS.md`.)
+
+## Known open items from the music path consolidation (not yet resolved)
+- **`library/music` is owned `0:0`.** Mode 777 keeps it functional, but it's the one ownership inconsistency in the tree — should be `1000:1001` like everything else.
+- **Prowlarr still mounts `/media/ssd-storage/docker/downloads`.** Prowlarr never touches download files (it's an indexer aggregator), so this mount is inert and should be removed — left alone for now.
+- **Old host paths may survive as empty `root:root` stubs** at `docker/media/music` and `docker/downloads/slskd` if anything restarted between the directory moves and the compose edits landing. Worth checking for and deleting so they aren't later mistaken for real data.
+- **slskd's incomplete → complete transition still crosses mounts** (`docker/incomplete-downloads/slskd` and `library/slskd` are separate bind mounts), so that step remains a copy. Folded into the existing incomplete-downloads-to-NVMe tuning task above.
+- **slskd has the music library mounted read-write** at `/data`, presumably to share the collection back to Soulseek — worth confirming that's deliberate rather than an oversight.
